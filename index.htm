@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Todo list</title>
+	<link rel="stylesheet" href="todo.css">
+</head>
+<body>
+	<div id="overlay"></div>
+	<div id="editmode">Lecture seule</div>
+	<h1>Liste des tâches : </h1>
+	<nav>
+		<ul>
+			<li id="newaction" onclick="edit(null)"><a href="javascript:void(0)">Ajouter une action</a></li>
+			<li onclick="open_window('filters')"><a href="javascript:void(0)">Filtrer</a></li>
+			<li onclick="export_list()"><a href="javascript:void(0)">Exporter</a></li>
+		</ul>
+	</nav>
+	<table id="list">
+		<thead>
+			<tr>
+				<th></th>
+				<th><a href="javascript:void(0)" onclick="change_sort(this)">Quoi ?</a></th>
+				<th><a href="javascript:void(0)" onclick="change_sort(this)">Qui ?</a></th>
+				<th><a href="javascript:void(0)" onclick="change_sort(this)">Avec qui ?</a></th>
+				<th><a href="javascript:void(0)" onclick="change_sort(this)">Pour quand ?</a></th>
+				<th><a href="javascript:void(0)" onclick="change_sort(this)">Statut</a></th>
+				<th><a href="javascript:void(0)" onclick="change_sort(this)">Commentaire</a></th>
+			</tr>
+		</thead>
+		<tbody></tbody>
+	</table>
+	<section id="editor">
+		<h1>Éditer la tâche</h1>
+		<form class="task">
+			<ul>
+				<li><label for="ttask">Quoi ?</label><input type="text" id="ttask" size="60" /></li>
+				<li><label for="tresp">Qui ?</label><input type="text" id="tresp" size="20" /></li>
+				<li><label for="tother">Avec qui ?</label><input type="text" id="tother" size="20" /></li>
+				<li><label for="tdue">Pour quand ?</label><input type="date" id="tdue" /></li>
+				<li><label for="tstatus">Statut</label>
+					<select id="tstatus" name="tstatus">
+						<option value="0">À faire</option>
+						<option value="1">En cours</option>
+						<option value="2">Terminé</option>
+						<option value="3">Abandonné</option>
+					</select>
+				</li>
+				<li><label for="tcomment">Commentaire</label><input type="text" id="tcomment" size="60" /></li>
+			</ul>
+			<div class="buttons">
+				<button type="button" tabindex="0" onclick="validate_editor()">OK</button>
+				<button type="button" tabindex="0" onclick="close_window('editor')">Annuler</button>
+			</div>
+		</form>
+	</section>
+	<section id="filters">
+		<h1>Appliquer un filtre</h1>
+		<p>Seules les tâches qui respectent les filtres suivants sont affichées.</p>
+		<form class="task">
+			<ul>
+				<li><label for="ffilter">Contient l'expression</label><input type="text" id="ffilter" size="60" /></li>
+				<li><label for="fdueafter">Échéance après le</label><input type="date" id="fdueafter" /></li>
+				<li><label for="fduebefore">Échéance avant le</label><input type="date" id="fduebefore" /></li>
+				<li class="onrow">
+					<div><input type="checkbox" id="fcheck0" value="0" checked /><label for="fcheck0">À faire</label></div>
+					<div><input type="checkbox" id="fcheck1" value="1" checked /><label for="fcheck1">En cours</label></div>
+					<div><input type="checkbox" id="fcheck2" value="2" /><label for="fcheck2">Terminé</label></div>
+					<div><input type="checkbox" id="fcheck3" value="3" /><label for="fcheck3">Abandonné</label></div>
+				</li>
+			</ul>
+			<div class="buttons">
+				<button type="button" tabindex="0" onclick="validate_filter()">OK</button>
+				<button type="button" tabindex="0" onclick="close_window('filters')">Annuler</button>
+			</div>
+		</form>
+	</section>
+</body>
+<script src="todo.js"></script>
+</html>
