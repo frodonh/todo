@@ -18,9 +18,9 @@ SET row_security = off;
 
 ALTER TABLE IF EXISTS ONLY todo.todo DROP CONSTRAINT IF EXISTS todo_cat_fkey;
 DROP INDEX IF EXISTS todo.todo_due_idx;
+DROP INDEX IF EXISTS todo.categories_name_ix;
 ALTER TABLE IF EXISTS ONLY todo.todo DROP CONSTRAINT IF EXISTS todo_pkey;
 ALTER TABLE IF EXISTS ONLY todo.categories DROP CONSTRAINT IF EXISTS categories_pkey;
-ALTER TABLE IF EXISTS ONLY todo.categories DROP CONSTRAINT IF EXISTS categories_name_key;
 ALTER TABLE IF EXISTS todo.todo ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS todo.categories ALTER COLUMN id DROP DEFAULT;
 DROP SEQUENCE IF EXISTS todo.todo_id_seq;
@@ -119,14 +119,6 @@ ALTER TABLE ONLY todo.todo ALTER COLUMN id SET DEFAULT nextval('todo.todo_id_seq
 
 
 --
--- Name: categories categories_name_key; Type: CONSTRAINT; Schema: todo; Owner: -
---
-
-ALTER TABLE ONLY todo.categories
-    ADD CONSTRAINT categories_name_key UNIQUE (name);
-
-
---
 -- Name: categories categories_pkey; Type: CONSTRAINT; Schema: todo; Owner: -
 --
 
@@ -143,6 +135,13 @@ ALTER TABLE ONLY todo.todo
 
 
 --
+-- Name: categories_name_ix; Type: INDEX; Schema: todo; Owner: -
+--
+
+CREATE UNIQUE INDEX categories_name_ix ON todo.categories USING btree (lower((name)::text));
+
+
+--
 -- Name: todo_due_idx; Type: INDEX; Schema: todo; Owner: -
 --
 
@@ -154,7 +153,7 @@ CREATE INDEX todo_due_idx ON todo.todo USING btree (due);
 --
 
 ALTER TABLE ONLY todo.todo
-    ADD CONSTRAINT todo_cat_fkey FOREIGN KEY (cat) REFERENCES todo.categories(id);
+    ADD CONSTRAINT todo_cat_fkey FOREIGN KEY (cat) REFERENCES todo.categories(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
