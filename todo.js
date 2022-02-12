@@ -124,6 +124,7 @@ class Records {
 	 */
 	insert_position(rec) {
 		if (!this.sort_order) return this.records.length;
+		if (this.records.length==0) return 0;
 		const cmp=this.compare_function();
 		let a=0;
 		let b=this.records.length-1;
