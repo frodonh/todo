@@ -28,7 +28,7 @@ let popupopened=null;
  **************************/
 /** Array of records (tasks). The class has the following member variables:
  * <dl>
- * 	<dt>tbody</dt><dd>DOM element (tbody) which will display the records</dd>
+ * 	<dt>tbody</dt><dd>DOM element (table) which will display the records</dd>
  * 	<dt>records</dt><dd>Array of records</dd>
  * 	<dt>cat</dt><dd>Category of the task list</dd>
  * 	<dt>editmode</dt><dd>True if the table may be edited</dd>
@@ -38,16 +38,41 @@ let popupopened=null;
  * </dl>
  */
 class Records {
-	constructor(tbody,params) {
-		this.tbody=tbody;
+	#sort_order=null;
+
+	constructor(table,params,sort_order=null,filters=null) {
+		this.table=table;
+		this.tbody=table.getElementsByTagName('tbody')[0];
 		this.params=params;
-		this.sort_order='due';
-		this.filters={
+		this.records=null;
+		if (sort_order!=null) this.sort_order=sort_order; else this.sort_order='due';
+		if (filters!=null) this.filters=JSON.parse(filters); else this.filters={
 			'text':null,
 			'dates':[null,null],
 			'status':["0","1"]
-		};
+		}; 
 		this.load_from_server()
+	}
+
+	get sort_order() {
+		return this.#sort_order;
+	}
+	set sort_order(s) {
+		if (this.#sort_order!=null) {
+			let f=this.#sort_order;
+			if (f.startsWith('-')) f=f.substring(1);
+			this.table.querySelector('th[data-field="'+f+'"]').classList.value="";
+		}
+		this.#sort_order=s;
+		if (s.startsWith('-')) {
+			this.table.querySelector('th[data-field="'+s.substring(1)+'"]').classList.add('desc-sort');
+		} else {
+			this.table.querySelector('th[data-field="'+s+'"]').classList.add('asc-sort');
+		}
+		if (this.records!=null) {
+			if (s!=null) this.records.sort(this.compare_function());
+			this.update_table();
+		}
 	}
 
 	/** Reload the list of tasks from the server
@@ -68,7 +93,8 @@ class Records {
 			th.editmode=(retparams['edit'] && retparams['edit']=='ok');
 			for (let line of arr) th.records.push(new Record(line));
 			if (!th.editmode) document.body.classList.add('readonly');
-			th.update_table(true);
+			if (this.sort_order!=null) this.records.sort(this.compare_function());
+			th.update_table();
 		}
 		let req='action=list';
 		for (const pname of ['key','list']) if (this.params[pname]) req+='&'+pname+'='+this.params[pname];
@@ -125,11 +151,8 @@ class Records {
 	}
 
 	/** Recreate the table
-	 * @param {boolean} sort - If true, the records are sorted before recreating the table
 	 */
-	update_table(sort=true) {
-		if (!this.full && (this.filters['status'].includes('2') || this.filters['status'].includes('3'))) this.load_from_server(true);
-		else if (sort) this.records.sort(this.compare_function());
+	update_table() {
 		this.tbody.innerHTML='';
 		for (const rec of this.records) {
 			rec.row=null;
@@ -309,12 +332,12 @@ class Record {
  * @param {object} sender - DOM object responsible for the event (link)
  */
 function change_sort(sender) {
-	let columns=document.querySelectorAll("table#list > thead > tr > th");
-	let i=0;
-	while (columns.item(i)!=sender.parentNode) ++i;
-	let fname=fields[i-1].name;
-	if (tasks.sort_order==fname) tasks.sort_order='-'+fname; else tasks.sort_order=fname;
-	tasks.update_table(true);
+	let fname=sender.parentNode.dataset['field'];
+	if (tasks.sort_order==fname) {
+		tasks.sort_order='-'+fname; 
+	} else {
+		tasks.sort_order=fname;
+	}
 }
 
 /**
@@ -399,7 +422,8 @@ function validate_editor() {
  */
 function validate_filter() {
 	tasks.load_filter_from_window();
-	tasks.update_table(false);
+	if (!tasks.full && (tasks.filters['status'].includes('2') || tasks.filters['status'].includes('3'))) tasks.load_from_server(true);
+	tasks.update_table();
 	close_window('filters');
 }
 
@@ -468,7 +492,7 @@ function export_list(format) {
 }
 
 /**************************
- *      Main program      *
+ *      Main events       *
  **************************/
 document.addEventListener("DOMContentLoaded",function(event) {
 	// Events
@@ -484,5 +508,11 @@ document.addEventListener("DOMContentLoaded",function(event) {
 	// Prepare interface
 	document.querySelector('body > h1').textContent+=' '+params['list'];
 	// Initialize table of tasks
-	tasks=new Records(document.getElementById('list').getElementsByTagName('tbody')[0],params);
+	tasks=new Records(document.getElementById('list'), params, localStorage.getItem("sortorder"), localStorage.getItem("filters"));
+});
+
+window.addEventListener("beforeunload", function(event) {
+	if (typeof tasks === 'undefined' || tasks==null) return;
+	localStorage.setItem("filters",JSON.stringify(tasks.filters))
+	localStorage.setItem("sortorder",tasks.sort_order)
 });
