@@ -33,25 +33,47 @@ let popupopened=null;
  * 	<dt>cat</dt><dd>Category of the task list</dd>
  * 	<dt>editmode</dt><dd>True if the table may be edited</dd>
  * 	<dt>sort_order</dt><dd>Sorting order of the table</dd>
+ *  <td>full</dt><dd>True if all the tasks are loaded</dd>
  * 	<dt>filters</dt><dd>Filters applied to the display</dd>
  * </dl>
  */
 class Records {
-	constructor(arr,tbody,params) {
+	constructor(tbody,params) {
 		this.tbody=tbody;
-		this.records=[];
 		this.params=params;
-		let retparams=arr.pop();
-		this.cat=parseInt(retparams['cat']);
-		this.editmode=(retparams['edit'] && retparams['edit']=='ok');
-		for (let line of arr) this.records.push(new Record(line));
 		this.sort_order='due';
 		this.filters={
 			'text':null,
 			'dates':[null,null],
 			'status':["0","1"]
 		};
-		this.records.sort(this.compare_function());
+		this.load_from_server()
+	}
+
+	/** Reload the list of tasks from the server
+	 * @param {boolean} full - If true, load all the tasks. Otherwise don't load tasks which are finished of abandonned
+	 */
+	load_from_server(full=false) {
+		let th=this;
+		let xhttp=new XMLHttpRequest();
+		xhttp.open('POST','todo.php',true);
+		xhttp.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+		xhttp.onload=function() {
+			if (this.responseText=="") return;
+			th.records=[];
+			th.full=full;
+			let arr=JSON.parse(this.responseText);
+			let retparams=arr.pop();
+			th.cat=parseInt(retparams['cat']);
+			th.editmode=(retparams['edit'] && retparams['edit']=='ok');
+			for (let line of arr) th.records.push(new Record(line));
+			if (!th.editmode) document.body.classList.add('readonly');
+			th.update_table(true);
+		}
+		let req='action=list';
+		for (const pname of ['key','list']) if (this.params[pname]) req+='&'+pname+'='+this.params[pname];
+		if (full) req+='&full=1'
+		xhttp.send(req);
 	}
 
 	/** Test if a record is matching the filter
@@ -106,7 +128,8 @@ class Records {
 	 * @param {boolean} sort - If true, the records are sorted before recreating the table
 	 */
 	update_table(sort=true) {
-		if (sort) this.records.sort(this.compare_function());
+		if (!this.full && (this.filters['status'].includes('2') || this.filters['status'].includes('3'))) this.load_from_server(true);
+		else if (sort) this.records.sort(this.compare_function());
 		this.tbody.innerHTML='';
 		for (const rec of this.records) {
 			rec.row=null;
@@ -124,6 +147,7 @@ class Records {
 	 */
 	insert_position(rec) {
 		if (!this.sort_order) return this.records.length;
+		if (this.records.length==0) return 0;
 		const cmp=this.compare_function();
 		let a=0;
 		let b=this.records.length-1;
@@ -193,6 +217,22 @@ class Records {
 		}
 		return res;
 	}
+
+	/** Create a JSON from the list of records
+	 * @returns JSON data 
+	 */
+	to_json() {
+		return JSON.stringify(this.records)
+	}
+
+	/** Export the list of records to a given format
+	 * @param {string} format - Format of the export
+	 * @returns Exported string
+	 */
+	to_format(format) {
+		if (format=='csv') return this.to_csv();
+		else if (format=='json') return this.to_json();
+	}
 }
 
 /**************************
@@ -234,7 +274,7 @@ class Record {
 	}
 
 	/** Associate a new DOM element to the record
-	 * @params {boolean} editmode - True if the row may be edited
+	 * @param {boolean} editmode - True if the row may be edited
 	 */
 	create_row(editmode=false) {
 		this.row=document.createElement('tr');
@@ -253,8 +293,10 @@ class Record {
 		let res='id=';
 		res+=encodeURIComponent(this.values['id']);
 		for (const field of fields) 
-			if (field.encode) res+=field.encode(this.values[field.name]); 
-			else res+='&'+field.name+'='+encodeURIComponent(this.values[field.name]);
+			if (this.values[field.name]!=null) {
+				if (field.encode) res+=field.encode(this.values[field.name]); 
+				else res+='&'+field.name+'='+encodeURIComponent(this.values[field.name]);
+			}
 		return res;
 	}
 }
@@ -288,8 +330,10 @@ function open_window(win) {
 	editor.style.display='block';
 	editor.style.overflow='hidden'; 
 	let tfield=editor.getElementsByTagName('input')[0];
-	tfield.focus();
-	tfield.select();
+	if (tfield) {
+		tfield.focus();
+		tfield.select();
+	}
 	popupopened=win;
 	setTimeout(function() { 
 		editor.style.maxHeight='100%';
@@ -403,21 +447,29 @@ function check(obj) {
 
 /**
  * Export the table to a CSV file
+ * @param {string} format - Format of the output file, either 'csv' or 'json'
  */
-function export_list() {
-	let encodeduri=encodeURI(tasks.to_csv());
-	let a=document.getElementById('downloadcsv');
+function export_list(format) {
+	let exporters = {
+		'csv': {'mime':'text/csv', 'ext':'csv'},
+		'json': {'mime':'application/json', 'ext':'json'}
+	}
+	let encodeduri=encodeURI(tasks.to_format(format));
+	let a=document.getElementById('downloadfile');
 	if (!a) {
 		a=document.createElement('a');
 		a.style.display='none';
-		a.id='downloadcsv';
+		a.id='downloadfile';
 		document.body.appendChild(a);
 	}
-	a.setAttribute('href','data:text/csv;charset=utf-8,'+encodeduri);
-	a.setAttribute('download',tasks.params['list']+'.csv');
+	a.setAttribute('href','data:'+exporters[format].mime+';charset=utf-8,'+encodeduri);
+	a.setAttribute('download',tasks.params['list']);
 	a.click();
 }
 
+/**************************
+ *      Main program      *
+ **************************/
 document.addEventListener("DOMContentLoaded",function(event) {
 	// Events
 	document.addEventListener("keydown",function(event) {
@@ -432,16 +484,5 @@ document.addEventListener("DOMContentLoaded",function(event) {
 	// Prepare interface
 	document.querySelector('body > h1').textContent+=' '+params['list'];
 	// Initialize table of tasks
-	let xhttp=new XMLHttpRequest();
-	xhttp.open('POST','todo.php',true);
-	xhttp.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
-	xhttp.onload=function() {
-		if (this.responseText=="") return;
-		tasks=new Records(JSON.parse(this.responseText),document.getElementById('list').getElementsByTagName('tbody')[0],params);
-		if (!tasks.editmode) document.body.classList.add('readonly');
-		tasks.update_table(false);
-	}
-	let req='action=list';
-	for (const pname of ['key','list']) if (params[pname]) req+='&'+pname+'='+params[pname];
-	xhttp.send(req);
+	tasks=new Records(document.getElementById('list').getElementsByTagName('tbody')[0],params);
 });

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Todo list</title>
+	<link rel="stylesheet" href="todo.css">
+</head>
+<body>
+	<div class="simpleform">
+		<h1>Création d'une liste</h1>
+		<form id="create">
+			<label for="name">Nom</label><input type="text" id="name" />
+		</form>
+		<div class="buttons">
+			<button class="btnok" type="button" tabindex="0" onclick="create()">Créer ma liste</button>
+		</div>
+		<p id="message"></p>
+	</div>
+</body>
+<script>
+function create() {
+	let xhttp=new XMLHttpRequest();
+	let name=document.getElementById('name').value;
+	xhttp.open('POST','todo.php',true);
+	xhttp.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+	xhttp.onload=function() {
+		if (this.responseText=="" || !this.responseText.startsWith('OK')) {
+			document.getElementById('message').innerHTML='Erreur : nom incorrect ou déjà utilisé';
+			return;
+		}
+		let url=window.location.href;
+		url=url.substring(0,url.lastIndexOf('/'));
+		let publicurl=url+'/?list='+name;
+		let privateurl=publicurl+'&key='+this.responseText.substring(3);
+		document.getElementById('message').innerHTML='Lien public : <a href="'+publicurl+'">'+publicurl+'</a><br/>Lien privé : <a href="'+privateurl+'">'+privateurl+'</a>';
+	}
+	let req='action=create&name='+name;
+	xhttp.send(req);
+}
+</script>
+</html>
